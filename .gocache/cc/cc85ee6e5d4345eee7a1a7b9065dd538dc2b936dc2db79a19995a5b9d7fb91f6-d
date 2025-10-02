@@ -1,0 +1,4 @@
+./schnorr_methods.go
+./secp256k1.go
+./benchmarks_test.go
+./secp256k1_test.go

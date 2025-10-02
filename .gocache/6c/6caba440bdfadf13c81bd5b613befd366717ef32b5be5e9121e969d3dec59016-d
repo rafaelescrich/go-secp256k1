@@ -1,0 +1,4 @@
+=== RUN   TestECDSASignAndVerify
+--- PASS: TestECDSASignAndVerify (0.01s)
+PASS
+ok  	github.com/rafaelescrich/go-secp256k1	0.250s

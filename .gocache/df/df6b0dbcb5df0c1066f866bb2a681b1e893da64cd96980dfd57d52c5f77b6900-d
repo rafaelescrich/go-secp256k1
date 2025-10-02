@@ -1,0 +1,4 @@
+./inverse.go
+./scalar.go
+./comparison_test.go
+./scalar_test.go

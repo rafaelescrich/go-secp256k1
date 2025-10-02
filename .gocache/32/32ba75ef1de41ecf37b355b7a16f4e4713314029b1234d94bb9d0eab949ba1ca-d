@@ -1,0 +1,4 @@
+=== RUN   TestVectorPublicKeyConsistency
+--- PASS: TestVectorPublicKeyConsistency (0.00s)
+PASS
+ok  	github.com/rafaelescrich/go-secp256k1/ecdh	0.290s

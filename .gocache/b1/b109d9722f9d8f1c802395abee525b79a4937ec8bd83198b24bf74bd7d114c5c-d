@@ -1,0 +1,10 @@
+=== RUN   TestECDHComputeSharedSecret
+=== RUN   TestECDHComputeSharedSecret/Test_Vector_1
+    ecdh_test.go:113: Shared secret: 0135da2f8acf7b9e3090939432e47684eb888ea38c2173054d4eedffdf152ca5
+=== RUN   TestECDHComputeSharedSecret/Test_Vector_2
+    ecdh_test.go:113: Shared secret: 132f39a98c31baaddba6525f5d43f2954472097fa15265f45130bfdb70e51def
+--- PASS: TestECDHComputeSharedSecret (0.00s)
+    --- PASS: TestECDHComputeSharedSecret/Test_Vector_1 (0.00s)
+    --- PASS: TestECDHComputeSharedSecret/Test_Vector_2 (0.00s)
+PASS
+ok  	github.com/rafaelescrich/go-secp256k1/ecdh	0.160s

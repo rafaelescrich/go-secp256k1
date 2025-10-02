@@ -1,0 +1,3 @@
+./ecdh.go
+./ecdh_test.go
+./simple_test.go

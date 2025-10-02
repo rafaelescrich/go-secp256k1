@@ -1,0 +1,4 @@
+=== RUN   TestAffineScalarMultiply
+--- PASS: TestAffineScalarMultiply (0.00s)
+PASS
+ok  	github.com/rafaelescrich/go-secp256k1/ecdh	0.232s
