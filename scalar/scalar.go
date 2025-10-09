@@ -6,6 +6,7 @@ import (
 	"crypto/subtle"
 	"encoding/binary"
 	"math/big"
+	"math/bits"
 )
 
 // The secp256k1 curve order: n = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
@@ -28,6 +29,14 @@ var (
 		0xBF, 0xD2, 0x5E, 0x8C, 0xD0, 0x36, 0x41, 0x41,
 	}
 	curveOrderBig = new(big.Int).SetBytes(curveOrderBytes)
+
+	// Curve order as 4 uint64 limbs (little-endian) for optimized arithmetic
+	curveOrderLimbs = [4]uint64{
+		0xBFD25E8CD0364141, // n[0]
+		0xBAAEDCE6AF48A03B, // n[1]
+		0xFFFFFFFFFFFFFFFE, // n[2]
+		0xFFFFFFFFFFFFFFFF, // n[3]
+	}
 )
 
 // Scalar represents a scalar value as 8 32-bit limbs in little-endian order.
@@ -433,4 +442,120 @@ func (s *Scalar) subtract512Order(val []uint32) {
 		val[i] = uint32(diff)
 		borrow = (diff >> 32) & 1
 	}
+}
+
+// Optimized uint64-based arithmetic methods for better performance
+
+// AddUint64 performs optimized scalar addition using uint64 arithmetic.
+func (s *Scalar) AddUint64(a, b *Scalar) *Scalar {
+	// Convert to uint64 limbs for faster arithmetic
+	aLimbs := s.toUint64Limbs(a)
+	bLimbs := s.toUint64Limbs(b)
+
+	var carry uint64
+	var result [4]uint64
+
+	// Add limb by limb with carry propagation
+	result[0], carry = bits.Add64(aLimbs[0], bLimbs[0], 0)
+	result[1], carry = bits.Add64(aLimbs[1], bLimbs[1], carry)
+	result[2], carry = bits.Add64(aLimbs[2], bLimbs[2], carry)
+	result[3], carry = bits.Add64(aLimbs[3], bLimbs[3], carry)
+
+	// If there's a carry or result >= n, subtract n
+	if carry != 0 || s.greaterEqualOrderUint64(&result) {
+		s.subOrderUint64(&result)
+	}
+
+	s.fromUint64Limbs(&result)
+	return s
+}
+
+// MulUint64 performs optimized scalar multiplication using uint64 arithmetic.
+func (s *Scalar) MulUint64(a, b *Scalar) *Scalar {
+	aLimbs := s.toUint64Limbs(a)
+	bLimbs := s.toUint64Limbs(b)
+
+	// Multiply to get 512-bit result
+	var t [8]uint64
+
+	// School multiplication: multiply each limb of a by each limb of b
+	for i := 0; i < 4; i++ {
+		var carry uint64
+		for j := 0; j < 4; j++ {
+			// Multiply a[i] * b[j] and add to t[i+j], t[i+j+1]
+			hi, lo := bits.Mul64(aLimbs[i], bLimbs[j])
+			t[i+j], carry = bits.Add64(t[i+j], lo, carry)
+			t[i+j+1], carry = bits.Add64(t[i+j+1], hi, carry)
+		}
+	}
+
+	// Reduce 512-bit result modulo curve order
+	s.reduce512Uint64(t)
+	return s
+}
+
+// Helper methods for uint64 optimization
+
+func (s *Scalar) toUint64Limbs(val *Scalar) [4]uint64 {
+	return [4]uint64{
+		uint64(val.n[0]) | uint64(val.n[1])<<32,
+		uint64(val.n[2]) | uint64(val.n[3])<<32,
+		uint64(val.n[4]) | uint64(val.n[5])<<32,
+		uint64(val.n[6]) | uint64(val.n[7])<<32,
+	}
+}
+
+func (s *Scalar) fromUint64Limbs(limbs *[4]uint64) {
+	s.n[0] = uint32(limbs[0])
+	s.n[1] = uint32(limbs[0] >> 32)
+	s.n[2] = uint32(limbs[1])
+	s.n[3] = uint32(limbs[1] >> 32)
+	s.n[4] = uint32(limbs[2])
+	s.n[5] = uint32(limbs[2] >> 32)
+	s.n[6] = uint32(limbs[3])
+	s.n[7] = uint32(limbs[3] >> 32)
+}
+
+func (s *Scalar) greaterEqualOrderUint64(limbs *[4]uint64) bool {
+	// Compare from most significant limb to least significant
+	for i := 3; i >= 0; i-- {
+		if limbs[i] > curveOrderLimbs[i] {
+			return true
+		}
+		if limbs[i] < curveOrderLimbs[i] {
+			return false
+		}
+	}
+	return true // Equal to order
+}
+
+func (s *Scalar) subOrderUint64(limbs *[4]uint64) {
+	var borrow uint64
+	limbs[0], borrow = bits.Sub64(limbs[0], curveOrderLimbs[0], 0)
+	limbs[1], borrow = bits.Sub64(limbs[1], curveOrderLimbs[1], borrow)
+	limbs[2], borrow = bits.Sub64(limbs[2], curveOrderLimbs[2], borrow)
+	limbs[3], borrow = bits.Sub64(limbs[3], curveOrderLimbs[3], borrow)
+}
+
+func (s *Scalar) reduce512Uint64(t [8]uint64) {
+	// Use hybrid approach: fast uint64 multiplication + big.Int reduction
+	// Convert 512-bit result to big.Int for reduction
+	bigVal := new(big.Int)
+
+	// Build the big.Int efficiently
+	bytes := make([]byte, 64) // 8 * 8 bytes
+	for i := 0; i < 8; i++ {
+		binary.LittleEndian.PutUint64(bytes[i*8:(i+1)*8], t[i])
+	}
+
+	// Convert little-endian bytes to big-endian for big.Int
+	for i := 0; i < 32; i++ {
+		bytes[i], bytes[63-i] = bytes[63-i], bytes[i]
+	}
+
+	bigVal.SetBytes(bytes)
+	bigVal.Mod(bigVal, curveOrderBig)
+
+	// Convert back efficiently
+	s.fromBig(bigVal)
 }
