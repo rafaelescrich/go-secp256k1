@@ -4,9 +4,6 @@ package secp256k1
 import (
 	"crypto/elliptic"
 	"math/big"
-
-	"github.com/rafaelescrich/go-secp256k1/field"
-	"github.com/rafaelescrich/go-secp256k1/group"
 )
 
 // Compatibility types and functions for btcsuite/btcd/btcec/v2
@@ -26,14 +23,14 @@ func (s *ModNScalar) SetByteSlice(b []byte) bool {
 	return s.Cmp(S256().Params().N) >= 0
 }
 
-// FieldVal represents a field element
+// FieldVal represents a field element (placeholder implementation)
 type FieldVal struct {
-	*field.Element
+	value *big.Int
 }
 
-// JacobianPoint represents a point in Jacobian coordinates
+// JacobianPoint represents a point in Jacobian coordinates (placeholder implementation)
 type JacobianPoint struct {
-	*group.Point
+	x, y, z *big.Int
 }
 
 // Error represents a secp256k1 error
@@ -80,10 +77,10 @@ func NewModNScalar() *ModNScalar {
 
 // NewFieldVal creates a new FieldVal
 func NewFieldVal() *FieldVal {
-	return &FieldVal{Element: field.Zero()}
+	return &FieldVal{value: new(big.Int)}
 }
 
 // NewJacobianPoint creates a new JacobianPoint
 func NewJacobianPoint() *JacobianPoint {
-	return &JacobianPoint{Point: group.Infinity()}
+	return &JacobianPoint{x: new(big.Int), y: new(big.Int), z: new(big.Int)}
 }

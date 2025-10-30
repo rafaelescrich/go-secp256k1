@@ -59,6 +59,16 @@ type Signature struct {
 	r, s *scalar.Scalar
 }
 
+// R returns the R component of the signature (for btcsuite compatibility)
+func (sig *Signature) R() *scalar.Scalar {
+	return sig.r
+}
+
+// S returns the S component of the signature (for btcsuite compatibility)
+func (sig *Signature) S() *scalar.Scalar {
+	return sig.s
+}
+
 // SchnorrSignature represents a BIP-340 Schnorr signature.
 type SchnorrSignature struct {
 	r *field.FieldVal // x-coordinate of R point
