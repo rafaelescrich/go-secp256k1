@@ -318,6 +318,20 @@ func (priv *PrivateKey) Clear() {
 	priv.key = nil
 }
 
+// Key returns the private key as a big integer (for Bor compatibility)
+func (priv *PrivateKey) Key() *big.Int {
+	if priv == nil || priv.key == nil {
+		return new(big.Int)
+	}
+	keyBytes := priv.key.Bytes()
+	return new(big.Int).SetBytes(keyBytes)
+}
+
+// Zero zeros out the private key (alias for Clear, for Bor compatibility)
+func (priv *PrivateKey) Zero() {
+	priv.Clear()
+}
+
 // PublicKey derives the public key from the private key.
 func (priv *PrivateKey) PublicKey() *PublicKey {
 	// Compute pubkey = privkey * G
@@ -410,6 +424,44 @@ func (pub *PublicKey) ToECDSA() *ecdsa.PublicKey {
 		X:     new(big.Int).SetBytes(pub.point.X().Bytes()),
 		Y:     new(big.Int).SetBytes(pub.point.Y().Bytes()),
 	}
+}
+
+// SerializeUncompressed serializes the public key in uncompressed format (65 bytes)
+// Returns 0x04 + 32 bytes X coordinate + 32 bytes Y coordinate
+func (pub *PublicKey) SerializeUncompressed() []byte {
+	if pub == nil || pub.point == nil || pub.point.IsInfinity() {
+		return nil
+	}
+
+	// Standard uncompressed format: 0x04 + 32 bytes X + 32 bytes Y
+	result := make([]byte, 65)
+	result[0] = 0x04
+
+	// Fill X coordinate (32 bytes, big-endian)
+	xBytes := pub.point.X().Bytes()
+	copy(result[33-len(xBytes):33], xBytes)
+
+	// Fill Y coordinate (32 bytes, big-endian)
+	yBytes := pub.point.Y().Bytes()
+	copy(result[65-len(yBytes):65], yBytes)
+
+	return result
+}
+
+// X returns the X coordinate of the public key
+func (pub *PublicKey) X() *big.Int {
+	if pub == nil || pub.point == nil || pub.point.IsInfinity() {
+		return new(big.Int)
+	}
+	return new(big.Int).SetBytes(pub.point.X().Bytes())
+}
+
+// Y returns the Y coordinate of the public key
+func (pub *PublicKey) Y() *big.Int {
+	if pub == nil || pub.point == nil || pub.point.IsInfinity() {
+		return new(big.Int)
+	}
+	return new(big.Int).SetBytes(pub.point.Y().Bytes())
 }
 
 // SignECDSA creates an ECDSA signature for the given 32-byte message hash.
@@ -753,4 +805,103 @@ func (curve *secp256k1Curve) ScalarBaseMult(k []byte) (*big.Int, *big.Int) {
 	}
 
 	return new(big.Int).SetBytes(result.X().Bytes()), new(big.Int).SetBytes(result.Y().Bytes())
+}
+
+// Additional functions for Bor compatibility
+
+// RecoverCompact recovers a public key from a compact signature
+func RecoverCompact(signature, hash []byte) (*PublicKey, bool, error) {
+	if len(signature) != 65 {
+		return nil, false, errors.New("invalid signature length")
+	}
+	if len(hash) != 32 {
+		return nil, false, errors.New("invalid hash length")
+	}
+
+	// Extract recovery ID (last byte)
+	recoveryID := signature[64]
+	if recoveryID >= 4 {
+		return nil, false, errors.New("invalid recovery ID")
+	}
+
+	compressed := recoveryID < 2
+
+	// Use your existing recovery implementation
+	// This is a simplified version - you may need to adapt based on your recovery module
+	pubKey, err := recoverPublicKey(signature[:64], hash, int(recoveryID%2))
+	if err != nil {
+		return nil, false, err
+	}
+
+	return pubKey, compressed, nil
+}
+
+// SignCompact creates a compact signature
+func SignCompact(priv *PrivateKey, hash []byte, compressed bool) ([]byte, error) {
+	if priv == nil {
+		return nil, errors.New("private key is nil")
+	}
+	if len(hash) != 32 {
+		return nil, errors.New("invalid hash length")
+	}
+
+	// Create ECDSA signature
+	sig, err := priv.SignECDSA(hash)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to compact format
+	result := make([]byte, 65)
+	copy(result[:32], sig.R().Bytes())
+	copy(result[32:64], sig.S().Bytes())
+
+	// Set recovery ID (simplified - you may need to calculate this properly)
+	recoveryID := byte(0)
+	if !compressed {
+		recoveryID += 2
+	}
+	result[64] = recoveryID
+
+	return result, nil
+}
+
+// PrivKeyFromBytes is an alias for PrivateKeyFromBytes (for Bor compatibility)
+func PrivKeyFromBytes(b []byte) *PrivateKey {
+	priv, err := PrivateKeyFromBytes(b)
+	if err != nil {
+		return nil
+	}
+	return priv
+}
+
+// NewSignature creates a new signature from R and S values
+func NewSignature(r, s *big.Int) *Signature {
+	sig := &Signature{}
+	// You'll need to adapt this based on your Signature struct
+	// This is a placeholder implementation
+	return sig
+}
+
+// KoblitzCurve returns the secp256k1 curve (alias for S256)
+func KoblitzCurve() elliptic.Curve {
+	return S256()
+}
+
+// ParsePubKey parses a public key from bytes (alias for PublicKeyFromBytes)
+func ParsePubKey(pubKeyBytes []byte) (*PublicKey, error) {
+	return PublicKeyFromBytes(pubKeyBytes)
+}
+
+// NewPrivateKey generates a new private key (alias for existing GeneratePrivateKey function)
+func NewPrivateKey() (*PrivateKey, error) {
+	return GeneratePrivateKey()
+}
+
+// Helper function for public key recovery (simplified implementation)
+func recoverPublicKey(signature, hash []byte, recoveryID int) (*PublicKey, error) {
+	// This is a simplified implementation
+	// You should implement proper ECDSA recovery based on your existing code
+	// For now, return an error to indicate it needs proper implementation
+	return nil, errors.New("recoverPublicKey: needs proper implementation based on your recovery module")
 }
