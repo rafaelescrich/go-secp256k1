@@ -905,3 +905,48 @@ func recoverPublicKey(signature, hash []byte, recoveryID int) (*PublicKey, error
 	// For now, return an error to indicate it needs proper implementation
 	return nil, errors.New("recoverPublicKey: needs proper implementation based on your recovery module")
 }
+
+// Additional types for compatibility with btcsuite and other libraries
+
+// ModNScalar represents a scalar modulo the curve order (alias for big.Int for compatibility)
+type ModNScalar = big.Int
+
+// FieldVal represents a field element (alias for your field.Element)
+type FieldVal = field.Element
+
+// JacobianPoint represents a point in Jacobian coordinates (alias for your group.Point)
+type JacobianPoint = group.Point
+
+// Error represents a secp256k1 error
+type Error struct {
+	message string
+}
+
+func (e Error) Error() string {
+	return e.message
+}
+
+// ErrorKind represents the kind of error
+type ErrorKind int
+
+const (
+	// ErrInvalidPrivKey indicates an invalid private key
+	ErrInvalidPrivKey ErrorKind = iota
+	// ErrInvalidPubKey indicates an invalid public key
+	ErrInvalidPubKey
+)
+
+// Params returns the secp256k1 curve parameters (alias for S256().Params())
+func Params() *elliptic.CurveParams {
+	return S256().Params()
+}
+
+// CurveParams is an alias for elliptic.CurveParams
+type CurveParams = elliptic.CurveParams
+
+// GenerateSharedSecret generates a shared secret using ECDH
+func GenerateSharedSecret(privKey []byte, pubKey []byte) []byte {
+	// This is a placeholder implementation
+	// You should implement proper ECDH based on your existing code
+	return make([]byte, 32)
+}
